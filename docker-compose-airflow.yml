@@ -1,0 +1,139 @@
+# Apache Airflow Environment for Perfect Oil Price Scraping
+# Oil price scraping with automated scheduling
+
+version: '3.8'
+
+services:
+  # Main PostgreSQL for gasohol data
+  postgres:
+    image: postgres:15
+    container_name: perfect_postgres
+    environment:
+      POSTGRES_DB: gasohol_prediction
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    networks:
+      - perfect_network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d gasohol_prediction" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: perfect_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@gasohol.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5051:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - perfect_network
+    restart: unless-stopped
+
+  # Redis for Airflow Celery
+  redis:
+    image: redis:7-alpine
+    container_name: perfect_redis
+    ports:
+      - "6380:6379"
+    networks:
+      - perfect_network
+    restart: unless-stopped
+
+  # Airflow Database (PostgreSQL)
+  airflow-postgres:
+    image: postgres:15
+    container_name: perfect_airflow_postgres
+    environment:
+      POSTGRES_DB: airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow123
+    ports:
+      - "5436:5432"
+    volumes:
+      - airflow_postgres_data:/var/lib/postgresql/data
+    networks:
+      - perfect_network
+    restart: unless-stopped
+
+  # Airflow Webserver
+  airflow-webserver:
+    image: apache/airflow:2.8.0-python3.11
+    container_name: perfect_airflow_webserver
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow123@airflow-postgres:5432/airflow
+      AIRFLOW__CORE__FERNET_KEY: 'Zv_9-F9v9b9F9v9F9v9F9v9F9v9F9v9F9v9F9v9F9v8='
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth'
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
+      AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: 30
+      PYTHONPATH: '/opt/airflow/scraper:/opt/airflow/scripts'
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./scraper:/opt/airflow/scraper
+      - ./scripts:/opt/airflow/scripts
+      - ./requirements.txt:/opt/airflow/requirements.txt
+    ports:
+      - "8083:8080"
+    depends_on:
+      - airflow-postgres
+      - redis
+    networks:
+      - perfect_network
+    restart: unless-stopped
+    command: bash -c "pip install -r /opt/airflow/requirements.txt && airflow db init && airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@airflow.com --password admin123 && airflow webserver --port 8080"
+
+  # Airflow Scheduler
+  airflow-scheduler:
+    image: apache/airflow:2.8.0-python3.11
+    container_name: perfect_airflow_scheduler
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow123@airflow-postgres:5432/airflow
+      AIRFLOW__CORE__FERNET_KEY: 'Zv_9-F9v9b9F9v9F9v9F9v9F9v9F9v9F9v9F9v9F9v8='
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: 30
+      PYTHONPATH: '/opt/airflow/scraper:/opt/airflow/scripts'
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./scraper:/opt/airflow/scraper
+      - ./scripts:/opt/airflow/scripts
+      - ./requirements.txt:/opt/airflow/requirements.txt
+    depends_on:
+      - airflow-postgres
+      - redis
+    networks:
+      - perfect_network
+    restart: unless-stopped
+    command: bash -c "pip install -r /opt/airflow/requirements.txt && airflow scheduler"
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+  airflow_postgres_data:
+
+
+networks:
+  perfect_network:
+    driver: bridge
