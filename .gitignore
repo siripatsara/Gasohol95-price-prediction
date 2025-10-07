@@ -1,6 +1,29 @@
 # Cloned repositories
 Gasohol95-price-prediction/
 
+# Logs and temporary files
+logs/
+*.log
+*.log.*
+
+# Airflow specific
+airflow-webserver.pid
+webserver_config.py
+standalone_admin_password.txt
+
+# HTML debug files
+*_debug.html
+debug_*.html
+bot_usdthb_debug.html
+eppo_debug.html
+
+# Test files
+test_*.py
+diagnose_*.py
+mock_*.py
+analyze_*.py
+*_fix_summary.py
+
 # Python
 __pycache__/
 *.py[cod]

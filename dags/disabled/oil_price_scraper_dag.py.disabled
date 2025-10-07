@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
 """
+# DISABLED: This DAG was moved to `dags/disabled/` to avoid duplicate DAG ids.
+# Original file: `dags/oil_price_scraper_dag.py`
+"""
+
+#!/usr/bin/env python3
+"""
 Airflow DAG for EPPO Oil Price Scraping
 รัน scraper แบบตั้งเวลาทุกวันเวลา 06:00 น.
 """
 
 from datetime import datetime, timedelta
+import pendulum
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
@@ -14,23 +21,23 @@ import os
 # เพิ่ม path สำหรับ import scraper
 sys.path.append('/opt/airflow/dags')
 
-def run_oil_scraper():
-    """ฟังก์ชันสำหรับรัน oil scraper"""
+def run_smart_oil_scraper():
+    """ฟังก์ชันสำหรับรัน smart oil scraper"""
     try:
-        # Import scraper (ต้องใส่ในฟังก์ชันเพื่อหลีกเลี่ยง import error ตอน DAG parsing)
-        from scraper.combined_scraper import CombinedOilScraper
+        # Import smart scraper
+        from scraper.smart_oil_scraper import SmartOilPriceScraper
         
-        scraper = CombinedOilScraper()
-        success = scraper.run_complete_scraping()
+        scraper = SmartOilPriceScraper()
+        success = scraper.run_smart_scraping()
         
         if not success:
-            raise Exception("Combined oil scraping failed!")
+            raise Exception("Smart oil scraping failed!")
             
-        print("✅ Complete oil scraping completed successfully!")
+        print("✅ Smart oil scraping completed successfully!")
         return "success"
         
     except Exception as e:
-        print(f"❌ Combined oil scraping failed: {e}")
+        print(f"❌ Smart oil scraping failed: {e}")
         raise
 
 def check_data_quality():
@@ -84,7 +91,8 @@ def check_data_quality():
 default_args = {
     'owner': 'data-team',
     'depends_on_past': False,
-    'start_date': datetime(2025, 10, 1),
+    # Use a timezone-aware start_date so Airflow interprets scheduling in Asia/Bangkok
+    'start_date': pendulum.datetime(2025, 10, 1, 0, 5, tz='Asia/Bangkok'),
     'email_on_failure': False,
     'email_on_retry': False,
     'retries': 2,
@@ -95,16 +103,16 @@ default_args = {
 dag = DAG(
     'eppo_oil_price_scraper',
     default_args=default_args,
-    description='Daily comprehensive oil price scraping (EPPO + Brent + USD/THB)',
-    schedule_interval='0 6 * * *',  # รันทุกวันเวลา 06:00 น.
+    description='Smart twice-daily oil price scraping with change detection (12:05 AM & 12:05 PM)',
+    schedule_interval='5 0,12 * * *',  # รันวันละ 2 ครั้ง: 00:05 และ 12:05 น.
     catchup=False,
-    tags=['oil-price', 'scraping', 'eppo', 'brent', 'usd-thb'],
+    tags=['oil-price', 'scraping', 'smart-update'],
 )
 
-# Task 1: รัน scraper
+# Task 1: รัน smart scraper
 scrape_task = PythonOperator(
-    task_id='scrape_oil_prices',
-    python_callable=run_oil_scraper,
+    task_id='smart_scrape_oil_prices',
+    python_callable=run_smart_oil_scraper,
     dag=dag,
 )
 

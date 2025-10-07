@@ -10,7 +10,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from direct_iframe_scraper import DirectIframeScraper
 from brent_oil_scraper import BrentOilScraper
-from usd_thb_scraper import USDTHBScraper
+from bot_usd_thb_scraper import BOTUSDTHBScraper  # แก้ไขชื่อไฟล์ให้ถูกต้อง
 import pandas as pd
 import logging
 from datetime import datetime
@@ -30,7 +30,7 @@ class CombinedOilScraper:
         # Initialize individual scrapers
         self.eppo_scraper = DirectIframeScraper()
         self.brent_scraper = BrentOilScraper()
-        self.usd_thb_scraper = USDTHBScraper()
+        self.usd_thb_scraper = BOTUSDTHBScraper()  # แก้ไขชื่อ class
 
     def run_complete_scraping(self) -> bool:
         """รัน scraping ทั้งหมดตามลำดับ"""
@@ -46,7 +46,7 @@ class CombinedOilScraper:
             # 1. Scrape EPPO Oil Prices (PTT, Shell)
             logger.info("📊 Step 1: Scraping EPPO oil prices...")
             try:
-                results['eppo'] = self.eppo_scraper.run_scraping()
+                results['eppo'] = self.eppo_scraper.run_scraping()  # ใช้ method ที่ถูกต้อง
                 if results['eppo']:
                     logger.info("✅ EPPO scraping completed successfully")
                 else:
@@ -57,7 +57,7 @@ class CombinedOilScraper:
             # 2. Scrape Brent Oil Prices
             logger.info("🛢️ Step 2: Scraping Brent oil prices...")
             try:
-                results['brent'] = self.brent_scraper.run_brent_scraping()
+                results['brent'] = self.brent_scraper.run()  # ใช้ method run()
                 if results['brent']:
                     logger.info("✅ Brent oil scraping completed successfully")
                 else:
@@ -68,7 +68,7 @@ class CombinedOilScraper:
             # 3. Scrape USD/THB Exchange Rate
             logger.info("💱 Step 3: Scraping USD/THB exchange rate...")
             try:
-                results['usd_thb'] = self.usd_thb_scraper.run_usd_thb_scraping()
+                results['usd_thb'] = self.usd_thb_scraper.run()  # ใช้ method run()
                 if results['usd_thb']:
                     logger.info("✅ USD/THB scraping completed successfully")
                 else:

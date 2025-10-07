@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # PostgreSQL for Airflow
+  airflow-postgres:
+    image: postgres:13
+    container_name: simple_airflow_postgres
+    environment:
+      POSTGRES_DB: airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+    ports:
+      - "5437:5432"
+    volumes:
+      - airflow_postgres_data:/var/lib/postgresql/data
+
+  # Redis for Celery
+  redis:
+    image: redis:7-alpine
+    container_name: simple_airflow_redis
+    ports:
+      - "6381:6379"
+
+  # Airflow WebServer
+  airflow-webserver:
+    image: apache/airflow:2.7.1-python3.11
+    container_name: simple_airflow_webserver
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow
+      AIRFLOW__CORE__FERNET_KEY: 'Zv_9-F9v9b9F9v9F9v9F9v9F9v9F9v9F9v9F9v9F9v8='
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
+      _AIRFLOW_DB_UPGRADE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      _AIRFLOW_WWW_USER_PASSWORD: admin
+    ports:
+      - "8084:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./data:/opt/airflow/data
+      - ./scraper:/opt/airflow/scraper
+    depends_on:
+      - airflow-postgres
+      - redis
+    command: webserver
+
+  # Airflow Scheduler
+  airflow-scheduler:
+    image: apache/airflow:2.7.1-python3.11
+    container_name: simple_airflow_scheduler
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow
+      AIRFLOW__CORE__FERNET_KEY: 'Zv_9-F9v9b9F9v9F9v9F9v9F9v9F9v9F9v9F9v9F9v8='
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./data:/opt/airflow/data
+      - ./scraper:/opt/airflow/scraper
+    depends_on:
+      - airflow-postgres
+      - redis
+    command: scheduler
+
+volumes:
+  airflow_postgres_data:

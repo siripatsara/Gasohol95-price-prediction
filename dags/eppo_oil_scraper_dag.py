@@ -5,6 +5,7 @@ DAG สำหรับ scrape ข้อมูลราคาน้ำมัน�
 """
 
 from datetime import datetime, timedelta
+import pendulum
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
@@ -22,7 +23,7 @@ from eppo_oil_scraper import EPPOOilScraper
 default_args = {
     'owner': 'gasohol-team',
     'depends_on_past': False,
-    'start_date': datetime(2025, 10, 1),
+    'start_date': pendulum.datetime(2025, 10, 4, tz='Asia/Bangkok'),  # Updated for immediate testing
     'email_on_failure': False,
     'email_on_retry': False,
     'retries': 3,
@@ -34,8 +35,8 @@ default_args = {
 dag = DAG(
     'eppo_oil_price_scraper',
     default_args=default_args,
-    description='Daily EPPO oil price scraping and data update',
-    schedule_interval='0 6,12,18 * * *',  # Run at 6 AM, 12 PM, and 6 PM daily
+    description='Daily EPPO oil price scraping and data update at 01:00 and 13:00 Bangkok time',
+    schedule_interval='0 1,13 * * *',  # Run at 01:00 AM and 13:00 PM (1:00 PM) daily
     max_active_runs=1,
     tags=['oil-price', 'scraping', 'gasohol']
 )

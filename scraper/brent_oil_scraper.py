@@ -267,6 +267,10 @@ class BrentOilScraper:
             logger.error(f"Error updating CSV with Brent prices: {e}")
             return False
 
+    def run(self) -> bool:
+        """รันกระบวนการ scraping Brent oil prices (สำหรับ Smart Scraper)"""
+        return self.run_brent_scraping()
+    
     def run_brent_scraping(self) -> bool:
         """รันกระบวนการ scraping Brent oil prices"""
         try:

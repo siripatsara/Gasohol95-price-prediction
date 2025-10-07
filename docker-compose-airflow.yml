@@ -72,7 +72,7 @@ services:
 
   # Airflow Webserver
   airflow-webserver:
-    image: apache/airflow:2.8.0-python3.11
+    image: apache/airflow:2.7.1-python3.11
     container_name: perfect_airflow_webserver
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
@@ -83,6 +83,9 @@ services:
       AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth'
       AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
       AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: 30
+      AIRFLOW__CORE__DEFAULT_TIMEZONE: 'Asia/Bangkok'
+      AIRFLOW__WEBSERVER__DEFAULT_UI_TIMEZONE: 'Asia/Bangkok'
+      TZ: 'Asia/Bangkok'
       PYTHONPATH: '/opt/airflow/scraper:/opt/airflow/scripts'
     volumes:
       - ./dags:/opt/airflow/dags
@@ -90,6 +93,7 @@ services:
       - ./plugins:/opt/airflow/plugins
       - ./scraper:/opt/airflow/scraper
       - ./scripts:/opt/airflow/scripts
+      - ./data:/opt/airflow/data
       - ./requirements.txt:/opt/airflow/requirements.txt
     ports:
       - "8083:8080"
@@ -99,11 +103,11 @@ services:
     networks:
       - perfect_network
     restart: unless-stopped
-    command: bash -c "pip install -r /opt/airflow/requirements.txt && airflow db init && airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@airflow.com --password admin123 && airflow webserver --port 8080"
+    command: bash -c " apt-get update && apt-get install -y wget gnupg2 software-properties-common unzip && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' > /etc/apt/sources.list.d/google-chrome.list && apt-get update && apt-get install -y google-chrome-stable && CHROME_VERSION=\$(google-chrome --version | grep -oP '\\d+\\.\\d+\\.\\d+') && CHROMEDRIVER_VERSION=\$(curl -s https://chromedriver.storage.googleapis.com/LATEST_RELEASE_\${CHROME_VERSION%.*}) && wget -O /tmp/chromedriver.zip https://chromedriver.storage.googleapis.com/\${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip && unzip /tmp/chromedriver.zip -d /tmp/ && mv /tmp/chromedriver /usr/bin/chromedriver && chmod +x /usr/bin/chromedriver && pip install -r /opt/airflow/requirements.txt && airflow db init && airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@airflow.com --password admin123 && airflow webserver --port 8080"
 
   # Airflow Scheduler
   airflow-scheduler:
-    image: apache/airflow:2.8.0-python3.11
+    image: apache/airflow:2.7.1-python3.11
     container_name: perfect_airflow_scheduler
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
@@ -112,6 +116,9 @@ services:
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
       AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: 30
+      AIRFLOW__CORE__DEFAULT_TIMEZONE: 'Asia/Bangkok'
+      AIRFLOW__WEBSERVER__DEFAULT_UI_TIMEZONE: 'Asia/Bangkok'
+      TZ: 'Asia/Bangkok'
       PYTHONPATH: '/opt/airflow/scraper:/opt/airflow/scripts'
     volumes:
       - ./dags:/opt/airflow/dags
@@ -119,6 +126,7 @@ services:
       - ./plugins:/opt/airflow/plugins
       - ./scraper:/opt/airflow/scraper
       - ./scripts:/opt/airflow/scripts
+      - ./data:/opt/airflow/data
       - ./requirements.txt:/opt/airflow/requirements.txt
     depends_on:
       - airflow-postgres
@@ -126,7 +134,7 @@ services:
     networks:
       - perfect_network
     restart: unless-stopped
-    command: bash -c "pip install -r /opt/airflow/requirements.txt && airflow scheduler"
+    command: bash -c " apt-get update && apt-get install -y wget gnupg2 software-properties-common unzip && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' > /etc/apt/sources.list.d/google-chrome.list && apt-get update && apt-get install -y google-chrome-stable && CHROME_VERSION=\$(google-chrome --version | grep -oP '\\d+\\.\\d+\\.\\d+') && CHROMEDRIVER_VERSION=\$(curl -s https://chromedriver.storage.googleapis.com/LATEST_RELEASE_\${CHROME_VERSION%.*}) && wget -O /tmp/chromedriver.zip https://chromedriver.storage.googleapis.com/\${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip && unzip /tmp/chromedriver.zip -d /tmp/ && mv /tmp/chromedriver /usr/bin/chromedriver && chmod +x /usr/bin/chromedriver && pip install -r /opt/airflow/requirements.txt && airflow scheduler"
 
 volumes:
   postgres_data:

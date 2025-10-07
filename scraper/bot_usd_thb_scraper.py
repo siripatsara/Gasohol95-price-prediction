@@ -35,20 +35,66 @@ class BOTUSDTHBScraper:
         self.driver = None
 
     def setup_driver(self):
-        """ตั้งค่า Chrome WebDriver"""
+        """ตั้งค่า Chrome WebDriver with improved container compatibility"""
         try:
             chrome_options = Options()
             chrome_options.add_argument('--headless')
             chrome_options.add_argument('--no-sandbox')
             chrome_options.add_argument('--disable-dev-shm-usage')
             chrome_options.add_argument('--disable-gpu')
+            chrome_options.add_argument('--disable-extensions')
+            chrome_options.add_argument('--disable-logging')
+            chrome_options.add_argument('--disable-background-timer-throttling')
+            chrome_options.add_argument('--disable-backgrounding-occluded-windows')
+            chrome_options.add_argument('--disable-renderer-backgrounding')
             chrome_options.add_argument('--window-size=1920,1080')
             chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
             
-            service = Service(ChromeDriverManager().install())
-            self.driver = webdriver.Chrome(service=service, options=chrome_options)
-            logger.info("Chrome WebDriver initialized successfully")
-            return True
+            # Try different approaches for Chrome WebDriver setup
+            try:
+                # Approach 1: Use ChromeDriverManager (most reliable for local development)
+                from webdriver_manager.chrome import ChromeDriverManager
+                service = Service(ChromeDriverManager().install())
+                self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                logger.info("Chrome WebDriver initialized with ChromeDriverManager")
+                return True
+                
+            except Exception as e1:
+                logger.warning(f"ChromeDriverManager failed: {e1}, trying system Chrome...")
+                
+                # Approach 2: Try system Chrome (for container environment)
+                try:
+                    chrome_options.binary_location = '/usr/bin/google-chrome'
+                    service = Service('/usr/bin/chromedriver') if os.path.exists('/usr/bin/chromedriver') else Service()
+                    self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                    logger.info("Chrome WebDriver initialized with system Chrome")
+                    return True
+                    
+                except Exception as e2:
+                    logger.warning(f"System Chrome failed: {e2}, trying Windows Chrome...")
+                    
+                    # Approach 3: Try Windows Chrome locations
+                    chrome_paths = [
+                        r'C:\Program Files\Google\Chrome\Application\chrome.exe',
+                        r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
+                        r'C:\Users\{}\AppData\Local\Google\Chrome\Application\chrome.exe'.format(os.getenv('USERNAME', ''))
+                    ]
+                    
+                    for chrome_path in chrome_paths:
+                        if os.path.exists(chrome_path):
+                            try:
+                                chrome_options.binary_location = chrome_path
+                                service = Service(ChromeDriverManager().install())
+                                self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                                logger.info(f"Chrome WebDriver initialized with {chrome_path}")
+                                return True
+                            except Exception as e3:
+                                logger.warning(f"Chrome path {chrome_path} failed: {e3}")
+                                continue
+                    
+                    # If all approaches fail
+                    logger.error("All Chrome WebDriver initialization methods failed")
+                    return False
             
         except Exception as e:
             logger.error(f"Failed to setup WebDriver: {e}")
@@ -155,23 +201,28 @@ class BOTUSDTHBScraper:
                 
                 for row in rows[1:]:  # Skip header row
                     cells = row.find_all('td')
-                    if len(cells) >= 2:
+                    if len(cells) >= 4:  # Need at least 4 columns to access all data
                         date_text = cells[0].get_text().strip()
-                        buying_rate_text = cells[1].get_text().strip()  # Buying Rates Sight Bill
+                        buying_sight_bill = cells[1].get_text().strip()  # Buying Rates Sight Bill ← ใช้อันนี้!
+                        buying_transfer = cells[2].get_text().strip()    # Buying Rates Transfer
+                        selling_rate_text = cells[3].get_text().strip()  # Average Selling Rates
                         
-                        logger.info(f"Found row: {date_text} -> {buying_rate_text}")
+                        logger.info(f"Found row: {date_text} -> Buying Sight Bill: {buying_sight_bill} (Selling: {selling_rate_text})")
                         
                         # Parse date
                         try:
                             # Expected format: "02 Oct 2025" or "01 Oct 2025"
                             parsed_date = datetime.strptime(date_text, "%d %b %Y").date()
                             
-                            # Parse exchange rate
-                            rate = float(buying_rate_text)
+                            # Parse Buying Rates Sight Bill (this is what we want!)
+                            rate = float(buying_sight_bill)
                             
                             exchange_data.append({
                                 'date': parsed_date,
                                 'usd_thb_rate': rate,
+                                'buying_sight_bill': rate,
+                                'buying_transfer': float(buying_transfer),
+                                'selling_rate': float(selling_rate_text),
                                 'source': 'BOT'
                             })
                                 
@@ -180,11 +231,12 @@ class BOTUSDTHBScraper:
                             try:
                                 # Try format: "2 Oct 2025" (without leading zero)
                                 parsed_date = datetime.strptime(date_text, "%d %b %Y").date()
-                                rate = float(buying_rate_text)
+                                rate = float(buying_sight_bill)
                                 
                                 exchange_data.append({
                                     'date': parsed_date,
                                     'usd_thb_rate': rate,
+                                    'buying_sight_bill': rate,
                                     'source': 'BOT'
                                 })
                             except Exception as e2:
@@ -346,6 +398,10 @@ class BOTUSDTHBScraper:
             logger.error(f"Error updating CSV file: {e}")
             return False
 
+    def run(self) -> bool:
+        """รันกระบวนการ scraping (สำหรับ Smart Scraper)"""
+        return self.run_scraping()
+        
     def run_scraping(self) -> bool:
         """รันกระบวนการ scraping และอัปเดตข้อมูลหลายวัน"""
         try:
